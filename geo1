@@ -1,0 +1,150 @@
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import geopandas as gpd
+from shapely.geometry import Point
+
+def geo_2_xyz(fi, lam, h, a, e2):
+    lam = np.deg2rad(lam)
+    fi = np.deg2rad(fi)
+
+    N = a / np.sqrt((1 - e2) * np.sin(fi) **2)
+    x = (N + h) * np.cos(fi) * np.cos(lam)
+    y = (N + h) * np.cos(fi) * np.sin(lam)
+    z = (N * (1 - e2) + h) * np.sin(fi)
+
+    XYZ_Dict = {'x': x,
+                'y': y,
+                'z': z}
+    return XYZ_Dict
+
+def matrice_rot(phi, lam):
+    lam = np.deg2rad(lam)
+    phi = np.deg2rad(phi)
+
+    matrice = [[-np.sin(phi) * np.cos(lam), -np.sin(lam), np.cos(phi) * np.cos(lam)],
+            [-np.sin(phi) * np.sin(lam), np.cos(lam), np.cos(phi) * np.sin(lam)],
+            [np.cos(phi), 0, np.sin(phi)]]
+    return matrice
+
+def matrice_XYZ(planeXYZ, aportXYZ):
+    matrice = [[planeXYZ['x'] - aportXYZ['x']], [planeXYZ['y'] - aportXYZ['y']], [planeXYZ['z'] - aportXYZ['z']]]
+    return matrice
+
+def xyz_to_neu(matrice_rot, matrice_XYZ):
+    matrice = np.dot(matrice_rot, matrice_XYZ)
+    neuDict = {'n': matrice[0],
+                'e': matrice[1],
+                'u': matrice[2]}
+    return neuDict
+
+def azimuth_neu(neuDict):
+    az = np.arctan2(neuDict['e'], neuDict['n'])
+    return az
+
+def s(neuDict):
+    s = np.sqrt(neuDict['n']**2 + neuDict['e']**2 + neuDict['u']**2)
+    return s
+
+def z(neuDict):
+    z = np.arccos(neuDict['u'] / np.sqrt(neuDict['n']**2 + neuDict['e']**2 + neuDict['u']**2))
+    return z
+
+# def s2(n,e,u):
+#     s = np.sqrt(n**2 + e**2 + u**2)
+#     return s
+
+
+a = 6378137
+e2 = 0.00669437999013
+
+# Warszawa
+# phiPort = 52.16583
+# lambdaPort = 20.96722
+# hPort = 0  # 110mnpm
+
+# Antalya
+phiPort = 36.8857
+lambdaPort = 30.8079
+hPort = 8
+
+# Londyn
+# phiPort = 51.4778
+# lambdaPort = -0.4136
+# hPort = 0
+
+aportXYZ = geo_2_xyz(phiPort, lambdaPort, hPort, a, e2)
+# print('aportXYZ: ' + str(aportXYZ['x']))
+
+phiList = []
+lambdaList = []
+hList = []
+
+with open('dane.txt') as dane:
+    i0 = True
+    for line in dane:
+        if(i0 != True):
+            line = line.split()
+            phiList.append(float(line[0]))
+            lambdaList.append(float(line[1]))
+            hList.append(float(line[2]))
+        else:
+            i0 = False
+
+# XYZ_List = []
+# neu_List = []
+# for i in range(len(phiList)):
+#     planeXYZ = geo_2_xyz(phiList[i], lambdaList[i], hList[i], a, e2)
+#     xyz = matrice_XYZ(planeXYZ, aportXYZ)
+#     macierz_rot = matrice_rot(phiList[i], lambdaList[i])
+#     print(macierz_rot)
+#     macierz_rot = np.transpose(macierz_rot)
+#     neu_List.append(xyz_to_neu(macierz_rot, xyz))
+
+neu_List = []
+macierz_rot = matrice_rot(phiPort, lambdaPort)
+macierz_rot = np.transpose(macierz_rot)
+for i in range(len(phiList)):
+    planeXYZ = geo_2_xyz(phiList[i], lambdaList[i], hList[i], a, e2)
+    xyz = matrice_XYZ(planeXYZ, aportXYZ)
+    neu_List.append(xyz_to_neu(macierz_rot, xyz))
+
+print('phiList: ' + str(len(phiList)))
+print('neu_List: ' + str(len(neu_List)))
+
+azimuth_List = []
+s_List = []
+z_List = []
+for i in range(len(neu_List)):
+    neu = neu_List[i]
+    azimuth_List.append(azimuth_neu(neu))
+    s_List.append(s(neu))
+    # print(s_List[i])
+    # print(neu)
+    # print(s(neu))
+    # print(s_List[i])
+    z_List.append(z(neu))
+
+print('s_List: ' + str(len(s_List)))
+
+fig = plt.figure()
+x = []
+y = []
+x = s_List
+for i in range(len(neu_List)):
+    e = neu_List[i]['e']
+    n = neu_List[i]['n']
+    u = neu_List[i]['u']
+    # x.append(e)
+    y.append(u)
+fig = plt.plot(x, y, 'ro', markersize=2)
+
+df = pd.DataFrame(data=pd.read_table('dane.txt'))
+# df.columns = ['lat', 'long', 'alt']
+geometry = [Point(xy) for xy in zip(df['long'], df['lat'])]
+gdf = gpd.GeoDataFrame(crs="EPSG:4326", geometry=geometry)
+# "EPSG:4326" to WGS84
+world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
+base = world.plot(color='white', edgecolor='black')
+gdf.plot(ax=base, marker='o', color='red', markersize=4);
+plt.show()
