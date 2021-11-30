@@ -1,0 +1,154 @@
+# Python 3.10
+
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2Tk)
+import numpy as np
+from matplotlib import cm
+import astropy as ap
+
+def julday(y, m, d, h):
+    if (m <= 2):
+        y -= 1
+        m += 12
+    jd = np.floor(365.25 * (y + 4716)) + np.floor(30.6001 * (m + 1)) + d + h / 24 - 1537.5
+    return jd
+
+def GMST(jd):
+    T = (jd - 2451545) / 36525
+    g = 280.46061837 + 360.98564736629 * (jd - 2451545.0) + \
+        0.000387933 * (T ** 2) - (T ** 3) / 38710000
+    g = g % 360
+    return g # wynik w kątach
+
+def set_axes(ax):
+    x_limits = ax.get_xlim3d()
+    y_limits = ax.get_ylim3d()
+    z_limits = ax.get_zlim3d()
+
+    x_range = abs(x_limits[1] - x_limits[0])
+    x_middle = np.mean(x_limits)
+    y_range = abs(y_limits[1] - y_limits[0])
+    y_middle = np.mean(y_limits)
+    z_range = abs(z_limits[1] - z_limits[0])
+    z_middle = np.mean(z_limits)
+
+    plot_radius = 0.5 * max([x_range, y_range, z_range])
+
+    ax.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
+    ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
+    ax.set_zlim3d([0, z_middle + plot_radius])
+
+# punkt obserwacji pk.pół.: Nokia N 61,28,0.02  E 23,30,0.00 89m
+# punkt obserwacji przy równiku: Gambela N 8 15 0.00 E 34 34 59.98 439m
+# punkt obserwacji pk.poł.: Timaru S 44 23 48.20 E 171 15 13.13 14m
+
+# X Cap / 25 Cap gwiazdozbiór Koziorożca
+# rektastenzja 21h08m31.40s
+# deklinacja -21,11,42.6
+# kąt godzinny 9h40m29.35s
+# średni czas gwiazdowy 6h49m01.6s
+
+y = 2000
+m = 1
+d = 10
+h = 0
+lam = 61 + 28/60 + 0.02/3600 #gλE szer. geogr. obserwatora
+lam = 360 - lam # gdy lam jest E
+dekl = -(21 + 11/60 + 42.6/3600) # deklinacja
+p = 90 - (dekl) # odległość biegunowa / dopełnienie deklinacji
+alfa = 21 + 8/60 + 32.4/3600 # rektascenzja danej gwiazdy
+
+
+def calc_t(y, m, d, h, lam, alfa):
+    jd = julday(y, m, d, h)
+    #print('jd: ' + str(jd))
+    g = GMST(jd)
+    UT1 = h * 1.002737909350795
+    S = UT1*15 + lam + g
+    t = S - alfa * 15
+    return t # kąt godzinny w stopniach
+
+# t = calc_t(y, m, d, h, lam, alfa)
+# print('t: ' + str(t))
+
+def calc_Z(phi, delta, t):
+    cosZ = np.sin(phi) * np.sin(delta) + np.cos(phi) * np.cos(delta) * np.cos(t)
+    Z = np.arccos(cosZ)
+    return Z # odległość zenitalna
+
+# z = calc_Z(lam, dekl, t)
+
+def calc_Az(phi, delta, t):
+    tgAz = (- np.cos(delta) * np.sin(t)) / \
+          (np.cos(phi) * np.sin(delta) - np.sin(phi) * np.cos(delta) * np.cos(t))
+    Az = np.arctan(tgAz)
+    return Az # azymut
+
+# Az = calc_Az(lam, dekl, t)
+
+def to_xyz(Z, Az, r = 1):
+    x = r * np.sin(Z) * np.cos(Az)
+    y = r * np.sin(Z) * np.sin(Az)
+    z = r * np.cos(Z)
+    return x, y, z
+
+# xyz = to_xyz(z, Az)
+
+# ax.plot(x, y, z, label='parametric curve')
+# ax.legend()
+
+plt.rcParams["figure.figsize"] = [7.00, 7.00]
+plt.rcParams["figure.autolayout"] = True
+fig = plt.figure()
+ax = fig.add_subplot(projection='3d')
+r = 1
+# u, v = np.mgrid[0:2 * np.pi:120j, 0:np.pi:80j]
+u, v = np.mgrid[0:2 * np.pi:200j, 0:np.pi:200j]
+
+# u = np.linspace(0, 2*np.pi, 100)
+# v = np.linspace(0, np.pi, 100)
+# x = np.outer(np.cos(u), np.sin(v))
+# y = np.outer(np.sin(u), np.sin(v))
+# z = np.outer(np.ones(np.size(u)), np.cos(v))
+
+# hList = [h for h in range(24)]
+# for i, h in enumerate(hList):
+xList = []
+yList = []
+zList = []
+for h in range(24):
+    t = calc_t(y, m, d, h, lam, alfa)
+    Z = calc_Z(lam, dekl, t)
+    Az = calc_Az(lam, dekl, t)
+    xyz = to_xyz(Z, Az)
+    xList.append(xyz[0])
+    yList.append(xyz[1])
+    zList.append(xyz[2])
+# print(xList)
+ax.scatter(xList, yList, zList, color='red')
+
+
+x = np.cos(u) * np.sin(v)
+y = np.sin(u) * np.sin(v)
+z = np.cos(v)
+
+# z = []
+# for i in range(len(v)):
+#     t = []
+#     for j in range(len(v[0])):
+#         if (np.cos(v[i][j]) < 0):
+#             t.append(0)
+#         else:
+#             t.append(np.cos(v[i][j]))
+#     z.append(t)
+# z = np.asarray(z)
+
+ax.plot_surface(x * r, y * r, z * r, color='cyan', alpha=0.5)
+
+# ax.scatter(xyz[0], xyz[1], xyz[2])
+# print('x:' +str(xyz[0]) + ' y:' +  str(xyz[1]) + ' z:' + str(xyz[2]))
+
+# set_axes(ax)
+plt.show()
