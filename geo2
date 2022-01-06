@@ -74,6 +74,10 @@ def calc_t(y, m, d, h, lam, alfa):
 # print('t: ' + str(t))
 
 def calc_Z(phi, delta, t):
+    phi = np.deg2rad(phi)
+    delta = np.deg2rad(delta)
+    t = np.deg2rad(t)
+
     cosZ = np.sin(phi) * np.sin(delta) + np.cos(phi) * np.cos(delta) * np.cos(t)
     Z = np.arccos(cosZ)
     return Z # odległość zenitalna
@@ -81,9 +85,15 @@ def calc_Z(phi, delta, t):
 # z = calc_Z(lam, dekl, t)
 
 def calc_Az(phi, delta, t):
-    tgAz = (- np.cos(delta) * np.sin(t)) / \
-          (np.cos(phi) * np.sin(delta) - np.sin(phi) * np.cos(delta) * np.cos(t))
-    Az = np.arctan(tgAz)
+    phi = np.deg2rad(phi)
+    delta = np.deg2rad(delta)
+    t = np.deg2rad(t)
+
+    # tgAz = (- np.cos(delta) * np.sin(t)) / \
+    #       (np.cos(phi) * np.sin(delta) - np.sin(phi) * np.cos(delta) * np.cos(t))
+    # Az = np.arctan(tgAz)
+    Az = np.arctan2(-np.cos(delta) * np.sin(t),
+                   np.cos(phi) * np.sin(delta) - np.sin(phi) * np.cos(delta) * np.cos(t))
     return Az # azymut
 
 # Az = calc_Az(lam, dekl, t)
@@ -118,7 +128,7 @@ u, v = np.mgrid[0:2 * np.pi:200j, 0:np.pi:200j]
 xList = []
 yList = []
 zList = []
-for h in range(24):
+for h in range(12):
     t = calc_t(y, m, d, h, lam, alfa)
     Z = calc_Z(lam, dekl, t)
     Az = calc_Az(lam, dekl, t)
