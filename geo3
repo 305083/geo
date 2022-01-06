@@ -1,0 +1,160 @@
+# Python 3.10
+
+import matplotlib as plt
+import numpy as np
+# e2 = 0.00669437999013
+# GRS80
+e2 = 0.00669438002290
+a = 6378137
+
+# nr = 15
+nr = 0
+phiA = np.deg2rad(50 + 15/60 + nr * 15/60)
+lamA = np.deg2rad(20 + 45/60)
+phiB = np.deg2rad(50 + nr * 15/60)
+lamB = np.deg2rad(20 + 45/60)
+phiC = np.deg2rad(50 + 15/60 + nr * 15/60)
+lamC = np.deg2rad(21 + 15/60)
+phiD = np.deg2rad(50 + nr * 15/60)
+lamD = np.deg2rad(21 + 15/60)
+
+def avgPt(lamA, lamB, phiA, phiB):
+    lam = (lamA + lamB) / 2
+    phi = (phiA + phiB) / 2
+    return lam, phi
+
+def vincent(a, e2, lamA, lamB, phiA, phiB):
+    # lamA = np.deg2rad(lamA)
+    # lamB = np.deg2rad(lamB)
+    # phiA = np.deg2rad(phiA)
+    # phiB = np.deg2rad(phiB)
+
+    b = a * np.sqrt(1 - e2)
+    f = 1 - b / a
+    dlam = lamB - lamA
+    Ua = np.arctan((1 - f) * np.tan(phiA))
+    Ub = np.arctan((1 - f) * np.tan(phiB))
+    # print('Ua: ' + str(Ua) + ' Ub: ' + str(Ub))
+
+    eps = np.deg2rad(0.000001 / (60**2))
+    sinsig = 0.0
+    cossig = 0.0
+    sig = 0.0
+    cos2a = 0.0
+    cos2sigm = 0.0
+    L = dlam
+    i = 0
+    while 1:
+        i += 1
+        # print(i)
+        sinsig = np.sqrt((np.cos(Ub) * np.sin(L)) ** 2 +
+                         (np.cos(Ua) * np.sin(Ub) - np.sin(Ua) * np.cos(Ub) * np.cos(L)) ** 2)
+        cossig = np.sin(Ua) * np.sin(Ub) + np.cos(Ua) * np.cos(Ub) * np.cos(L)
+        sig = np.arctan(sinsig / cossig)
+        # sig = np.arctan2(sinsig, cossig)
+        sina = (np.cos(Ua) * np.cos(Ub) * np.sin(L)) / sinsig
+        cos2a = 1 - (sina ** 2)
+        cos2sigm = cossig - ((2 * np.sin(Ua) * np.sin(Ub)) / cos2a)
+        C = f / 16 * cos2a * (4 + f * (4 - 3 * cos2a))
+        newL = dlam + (1 - C) * f * sina * (sig + C*sinsig * (cos2sigm + C*cossig*(-1 + 2*(cos2sigm ** 2))))
+        if abs(newL - L) < eps:
+            L = newL
+            break
+        L = newL
+
+    # print(sinsig, cossig, sig, sina, cos2a, cos2sigm)
+    # print('sig:' + str(sig))
+    # print('cossig:' + str(cossig))
+    # print('sinsig:' + str(sinsig))
+    # print('cos2sigm:' + str(cos2sigm))
+    u2 = ((a**2) - (b**2)) / (b**2) * cos2a
+    A = 1 + (u2 / 16384) * (4096 + u2 * (-768 + u2 * (320 - 175*u2)))
+    # print('A:' + str(A))
+    B = (u2/1024) * (256 + u2 * (-128 + u2 * (74 - 47*u2)))
+    # print('B:' + str(B))
+    dsig = B * sinsig * (cos2sigm + (B / 4) * (cossig * (-1 + 2 * (cos2sigm ** 2)) \
+                         - ((B / 6) * cos2sigm * (-3 + 4 * (sinsig ** 2)) * (-3 + 4 * (cos2sigm ** 2)))))
+    # print('dsig:' + str(dsig))
+
+    s = b * A * (sig - dsig)
+    AzAB = np.arctan2(np.cos(Ub) * np.sin(L),
+                     (np.cos(Ua) * np.sin(Ub) - np.sin(Ua) * np.cos(Ub) * np.cos(L)))
+    AzBA = np.arctan2(np.cos(Ua) * np.sin(L),
+                     (-np.sin(Ua) * np.cos(Ub) + np.cos(Ua) * np.sin(Ub) * np.cos(L))) + np.pi
+    # AzAB = np.rad2deg(AzAB)
+    # AzBA = np.rad2deg(AzBA)
+    # print(s, AzAB, AzBA)
+    # print(dsig)
+    return s, AzAB, AzBA
+
+# test = vincent(a, e2, np.deg2rad(10), np.deg2rad(20), np.deg2rad(30), np.deg2rad(40))
+# test2 = vincent(a,e2, np.deg2rad(9), np.deg2rad(12), np.deg2rad(8), np.deg2rad(11))
+# test3 = vincent(a, e2, np.deg2rad(20.75), np.deg2rad(21.25), np.deg2rad(50.25), np.deg2rad(50))
+test3 = vincent(a, e2, lamA, lamD, phiA, phiD)
+# print(test3[0], np.rad2deg(test3[1]), np.rad2deg(test3[2]))
+print('wyniki z Vincenta: s=' + str(round(test3[0], 3)) + 'm AzAB=' + str(round(np.rad2deg(test3[1]), 5)) + '° AzBA=' + str(round(np.rad2deg(test3[2]), 5)) + '°')
+
+
+
+def kivioj(a, e2, s, Az, lam, phi):
+    n = int(s / 1000) + 1 # liczba odcinków
+    dsn = s % 1000 # dł. ostatniego odcinka
+
+    for i in range(1, n+1):
+        if (i < n):  # prawda dla wszystkich oprócz ostatniego
+            ds = 1000
+        else:
+            ds = dsn
+            # print("dsn")
+
+        M = a * (1 - e2) / np.sqrt((1 - e2 * np.sin(phi) ** 2) ** 3)
+        N = a / np.sqrt(1 - e2 * np.sin(phi) ** 2)
+        dPhi = ds * np.cos(Az) / M
+        dAz = np.sin(Az) * np.tan(phi) * ds / N
+        phi_m = phi + dPhi / 2
+        Az_m = Az + dAz / 2
+
+        M_m = a * (1 - e2) / np.sqrt((1 - e2 * np.sin(phi_m) ** 2) ** 3)
+        N_m = a / np.sqrt(1 - e2 * np.sin(phi_m) ** 2)
+        dPhi = ds * np.cos(Az_m) / M_m
+        dLam = ds * np.sin(Az_m) / (N_m * np.cos(phi_m))
+        dAz = np.sin(Az_m) * np.tan(phi_m) * ds / N_m
+
+        phi = phi + dPhi
+        lam = lam + dLam
+        Az = Az + dAz
+    return lam, phi
+
+# kiv = kivioj(a, e2, test3[0]/2, test3[1], np.deg2rad(20.75), np.deg2rad(50.25))
+kiv = kivioj(a, e2, test3[0]/2, test3[1], lamA, phiA)
+# print(np.rad2deg(kiv[0]), np.rad2deg(kiv[1]))
+print('środek z Kivioja: lam=' + str(round(np.rad2deg(kiv[0]), 9)) + '° phi=' + str(round(np.rad2deg(kiv[1]), 9)) + '°')
+
+avg = avgPt(lamA, lamD, phiA, phiD)
+print('środek aryt.: lam=' + str(round(np.rad2deg(avg[0]), 9)) + '° phi=' +  str(round(np.rad2deg(avg[1]), 9)) + '°')
+mean_diff = vincent(a, e2, kiv[0], avg[0], kiv[1], avg[1])
+print('odległość pomiędzy środkami: ' + str(round(mean_diff[0], 3)) + 'm')
+
+
+# azymuty do prawego dolnego rogu (punkt D)
+Az1 = vincent(a, e2, avg[0], lamD, avg[1], phiD)
+Az1 = Az1[1]
+print('azymut środka aryt.: ' + str(round(Az1, 9)) + '°')
+Az2 = vincent(a, e2, kiv[0], lamD, kiv[1], phiD)
+Az2 = Az2[1]
+print('azymut środka z Kivioja.: ' + str(round(Az2, 9)) + '°')
+
+def pole(a, e2, lamA, lamB, phiA, phiB):
+    e = np.sqrt(e2)
+    b = a * np.sqrt(1 - e2)
+    # print('b: ' + str(b))
+    sinPhiA = np.sin(phiA)
+    sinPhiB = np.sin(phiB)
+    # np.log to ln (logarytm naturalny)
+    P = b**2 * (lamB - lamA) / 2 * \
+        ((sinPhiB / (1 - e2 * sinPhiB**2) + 1 / (2*e) * np.log((1 + e * sinPhiB) / (1 - e * sinPhiB)))
+        - (sinPhiA / (1 - e2 * sinPhiA**2) + 1 / (2*e) * np.log((1 + e * sinPhiA) / (1 - e * sinPhiA))))
+    return abs(P)
+
+# print('pole: ' + str(round(pole(a, e2, np.deg2rad(20.75), np.deg2rad(21.25), np.deg2rad(50.25), np.deg2rad(50)), 3)) + 'm^2')
+print('pole: ' + str(round(pole(a, e2, lamA, lamD, phiA, phiD), 3)) + 'm^2')
