@@ -2,13 +2,12 @@
 
 import matplotlib as plt
 import numpy as np
-# e2 = 0.00669437999013
 # GRS80
 e2 = 0.00669438002290
 a = 6378137
 
-# nr = 15
-nr = 0
+nr = 15
+# nr = 0
 phiA = np.deg2rad(50 + 15/60 + nr * 15/60)
 lamA = np.deg2rad(20 + 45/60)
 phiB = np.deg2rad(50 + nr * 15/60)
@@ -139,10 +138,10 @@ print('odległość pomiędzy środkami: ' + str(round(mean_diff[0], 3)) + 'm')
 # azymuty do prawego dolnego rogu (punkt D)
 Az1 = vincent(a, e2, avg[0], lamD, avg[1], phiD)
 Az1 = Az1[1]
-print('azymut środka aryt.: ' + str(round(Az1, 9)) + '°')
+print('azymut środka aryt.: ' + str(round(np.rad2deg(Az1), 9)) + '°')
 Az2 = vincent(a, e2, kiv[0], lamD, kiv[1], phiD)
 Az2 = Az2[1]
-print('azymut środka z Kivioja.: ' + str(round(Az2, 9)) + '°')
+print('azymut środka z Kivioja.: ' + str(round(np.rad2deg(Az2), 9)) + '°')
 
 def pole(a, e2, lamA, lamB, phiA, phiB):
     e = np.sqrt(e2)
