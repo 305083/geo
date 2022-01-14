@@ -1,0 +1,337 @@
+Python 3.10
+
+import numpy as np
+
+#GRS80
+a = 6378137
+e2 = 0.00669438002290
+
+nr = 15
+# nr = 0
+phiA = np.deg2rad(50 + 15/60 + nr * 15/60)
+lamA = np.deg2rad(20 + 45/60)
+phiB = np.deg2rad(50 + nr * 15/60)
+lamB = np.deg2rad(20 + 45/60)
+phiC = np.deg2rad(50 + 15/60 + nr * 15/60)
+lamC = np.deg2rad(21 + 15/60)
+phiD = np.deg2rad(50 + nr * 15/60)
+lamD = np.deg2rad(21 + 15/60)
+lamKiv = np.deg2rad(21.000745524192478)
+phiKiv = np.deg2rad(53.875261640398186)
+lamMean = np.deg2rad(21.0)
+phiMean = np.deg2rad(53.875)
+
+lam_List = [lamA, lamB, lamC, lamD, lamKiv, lamMean]
+phi_List = [phiA, phiB, phiC, phiD, phiKiv, phiMean]
+
+def func_list2list(func, list1: list, list2: list = None, funcVar = None):
+    # list3 = []
+    # for i in range(len(list1)):
+    #     if (list2 == None):
+    #         if (funcVar == None):
+    #             list3.append(func(list1[i]))
+    #         else:
+    #             list3.append(func(list1[i], funcVar))
+    #     else:
+    #         if (funcVar == None):
+    #             list3.append(func(list1[i], list2[i]))
+    #         else:
+    #             list3.append(func(list1[i], list2[i], funcVar))
+    # return list3
+    list3 = []
+    list4 = []
+    singular = False
+    for i in range(len(list1)):
+        if (list2 == None):
+            if (funcVar == None):
+                list3.append(func(list1[i]))
+            else:
+                list3.append(func(list1[i], funcVar))
+        else:
+            if (funcVar == None):
+                result = func(list1[i], list2[i])
+            else:
+                result = func(list1[i], list2[i], funcVar)
+            try:
+                list3.append(result[0])
+                list4.append(result[1])
+            except:
+                list3.append(result)
+                singular = True
+
+    if (list2 == None or singular == True):
+        return list3
+    else:
+        return list3, list4
+
+def dist_2d(x1, y1, x2, y2):
+    dist = np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
+    return dist
+
+def area_2d_rect(x1, y1, x2, y2, x3, y3): # wierzchołek2 (x2, y2) musi być pomiędzy wierzchołkami 1 i 3
+    a = dist_2d(x1, y1, x2, y2)
+    b = dist_2d(x2, y2, x3, y3)
+    area = a * b
+    return area
+
+def rad2deg_m_s(radians):
+    degrees = int(np.rad2deg(radians))
+    # print('degrees: ' + str(degrees))
+    minutes = np.rad2deg(radians) % 1 * 60
+    # print('minutes: ' + str(minutes))
+    minutes_no_sec = minutes - minutes % 1
+    # print('minutes_no_sec: ' + str(minutes_no_sec))
+    seconds = minutes % 1 * 60
+    # print('seconds: ' + str(seconds))
+    deg_m_s = str(degrees) + '° ' + str(minutes_no_sec) + 'm ' + str(round(seconds, 5)) + 's'
+    return deg_m_s
+
+# φ=51°42'3.70702"
+# λ=18°10'31.66445"
+#
+# współrzędne przeliczone:
+# 2000:
+# x=5729652.129 y=6512129.578
+#
+# 1992:
+# x=426389.392 y=443036.288
+
+lam = np.deg2rad(18 + 10 / 60 + 31.66445 / 3600)
+phi = np.deg2rad(51 + 42 / 60 + 3.70702 / 3600)
+
+def GK(lam, phi, lam0):
+    # lam0 = np.deg2rad(19)
+    t2 = np.tan(phi) ** 2
+    b2 = a * a * (1 - e2)
+    eap2 = (a * a - b2) / b2
+    dLam = lam - lam0
+    eta2 = eap2 * np.cos(phi) ** 2
+    N = a / np.sqrt(1 - e2 * np.sin(phi) ** 2)
+    e4 = e2 * e2
+    e6 = e4 * e2
+    A0 = 1 - e2 / 4 - 3 * e4 / 64 - 5 * e6 / 256
+    A2 = 3 / 8 * (e2 + e4 / 4 + 15 * e6 / 128)
+    A4 = 15 / 256 * (e4 + 3 * e6 / 4)
+    A6 = 35 * e6 / 3072
+    sig = a * (A0 * phi - A2 * np.sin(2 * phi) + A4 * np.sin(4 * phi) - A6 * np.sin(6 * phi))
+    # print('sig: '+ str(sig))
+    x = sig + (dLam ** 2) / 2 * N * np.sin(phi) * np.cos(phi) * \
+        (1 + (dLam ** 2) / 12 * np.cos(phi) ** 2 * (5 - t2 + 9 * eta2 + 4 * eta2 ** 2) +
+         dLam ** 4 / 360 * np.cos(phi) ** 4 * (61 - 58 * t2 + t2 ** 2 + 270 * eta2 - 330 * eta2 * t2))
+    y = dLam * N * np.cos(phi) * (1 + dLam **2 / 6 * np.cos(phi) ** 2 * (1 - t2 + eta2) +
+                                  dLam ** 4 / 120 * np.cos(phi) ** 4 *
+                                  (5 - 18 * t2 + t2 ** 2 + 14 * eta2 - 58 * eta2 * t2))
+    return x, y
+
+gk = GK(lam, phi, np.deg2rad(19))
+# print(gk[0], gk[1])
+
+gk_6pts = func_list2list(GK, lam_List, phi_List, np.deg2rad(19))
+print(gk_6pts)
+
+
+def GK_92(lam, phi):
+    lam0 = np.deg2rad(19)
+    gk = GK(lam, phi, lam0)
+    m0 = 0.9993
+    x = m0 * gk[0] - 5300000
+    y = m0 * gk[1] + 500000
+    return x, y
+
+gk92 = GK_92(lam, phi)
+# print(gk92[0], gk92[1])
+
+gk92_6pts = func_list2list(GK_92, lam_List, phi_List)
+print(gk92_6pts)
+
+def check_zone_lam0(lam):
+    if (lam < np.deg2rad(16.5)):
+        zone = 5
+        lam0 = np.deg2rad(15)
+    elif (lam < np.deg2rad(19.5)):
+        zone = 6
+        lam0 = np.deg2rad(18)
+    elif (lam < np.deg2rad(22.5)):
+        zone = 7
+        lam0 = np.deg2rad(21)
+    else:
+        zone = 8
+        lam0 = np.deg2rad(24)
+    return zone, lam0
+
+def GK_00(lam, phi):
+    zone_lam0 = check_zone_lam0(lam)
+    zone = zone_lam0[0]
+    lam0 = zone_lam0[1]
+
+    # lam0 = np.deg2rad(18)
+    # zone = 6
+    gk = GK(lam, phi, lam0)
+    m0 = 0.999923
+    x = m0 * gk[0]
+    y = m0 * gk[1] + zone * 1000000 + 500000
+    return x, y
+
+gk00 = GK_00(lam, phi)
+# print(gk00[0], gk00[1])
+
+gk00_6pts = func_list2list(GK_00, lam_List, phi_List)
+print(gk00_6pts)
+
+
+print('pola:')
+
+# print()
+
+# Gauss-Kruger zachowuje kąty, więc prostokąt dalej jest prostokątem
+x_gk_6pts = gk_6pts[0]
+y_gk_6pts = gk_6pts[1]
+area_gk_6pts = area_2d_rect(x_gk_6pts[0], y_gk_6pts[0], x_gk_6pts[1], y_gk_6pts[1],x_gk_6pts[3], y_gk_6pts[3])
+print(area_gk_6pts)
+
+x_gk92_6pts = gk92_6pts[0]
+y_gk92_6pts = gk92_6pts[1]
+area_gk92_6pts = area_2d_rect(x_gk92_6pts[0], y_gk92_6pts[0], x_gk92_6pts[1], y_gk92_6pts[1],x_gk92_6pts[3], y_gk92_6pts[3])
+print(area_gk92_6pts)
+
+x_gk00_6pts = gk00_6pts[0]
+y_gk00_6pts = gk00_6pts[1]
+area_gk00_6pts = area_2d_rect(x_gk00_6pts[0], y_gk00_6pts[0], x_gk00_6pts[1], y_gk00_6pts[1],x_gk00_6pts[3], y_gk00_6pts[3])
+print(area_gk00_6pts)
+
+
+print('skale długości:')
+
+# def m_GK(lam, phi, lam0):
+#     t2 = np.tan(phi) ** 2
+#     b2 = a * a * (1 - e2)
+#     eap2 = (a * a - b2) / b2
+#     dLam = lam - lam0
+#     eta2 = eap2 * np.cos(phi) ** 2
+#     m_gk = 1 + dLam ** 2 / 2 * np.cos(phi) ** 2 * (1 + eta2)\
+#              + dLam ** 4 / 24 * np.cos(phi) ** 4 * (5 - 4 * t2)
+#
+# m_gk_6pts = func_list2list(m_GK, lam_List, phi_List, np.deg2rad(19))
+# print(m_gk_6pts)
+
+def m_GK(y_gk, phi):
+    N = a / np.sqrt(1 - e2 * np.sin(phi) ** 2)
+    M = a * (1 - e2) / (1 - e2 * np.sin(phi) ** 2)
+    Q = np.sqrt(M * N)
+    m_gk = 1 + y_gk ** 2 / (2 * Q ** 2) + y_gk ** 2 / (24 * Q ** 4)
+    return m_gk
+
+m_gk_6pts = func_list2list(m_GK, y_gk_6pts, phi_List)
+print(m_gk_6pts)
+
+def m_GK_92(y_gk, phi):
+    m_gk = m_GK(y_gk, phi)
+    m0_92 = 0.9993
+    m_92 = m0_92 * m_gk
+    return m_92
+
+m_gk92_6pts = func_list2list(m_GK_92, y_gk_6pts, phi_List)
+print(m_gk92_6pts)
+
+# def m_GK_00(y_gk, lam, phi):
+def m_GK_00(y_gk, phi):
+    m_gk = m_GK(y_gk, phi)
+    m0_00 = 0.999923
+    m_00 = m0_00 * m_gk
+
+    # gk = GK(lam, phi, lam0)
+    # m_gk = m_GK(y_gk, phi)
+    #
+    # zone_lam0 = check_zone_lam0(lam)
+    # zone = zone_lam0[0]
+    # lam0 = zone_lam0[1]
+    # gk00 = GK_00(lam, phi)
+    return m_00
+
+m_gk00_6pts = func_list2list(m_GK_00, y_gk_6pts, phi_List)
+print(m_gk00_6pts)
+# m_gk_00 = m_GK_00(y_gk_6pts[0], phi_List[0])
+
+
+print('zniekształcenia:')
+
+def Z_GK(y_gk, phi):
+    m_gk = m_GK(y_gk, phi)
+    Z_gk = m_gk - 1
+    return Z_gk
+
+Z_gk_6pts = func_list2list(Z_GK, y_gk_6pts, phi_List)
+print(Z_gk_6pts)
+
+def Z_GK_92(y_gk, phi):
+    m_gk = m_GK(y_gk, phi)
+    m0_92 = 0.9993
+    m_92 = m0_92 * m_gk
+    Z_92 = m_92 - 1
+    return Z_92
+
+Z_gk92_6pts = func_list2list(Z_GK_92, y_gk_6pts, phi_List)
+print(Z_gk92_6pts)
+
+def Z_GK_00(y_gk, phi):
+    m_gk = m_GK(y_gk, phi)
+    m0_00 = 0.999923
+    m_00 = m0_00 * m_gk
+    Z_00 = m_00 - 1
+    return Z_00
+
+Z_gk00_6pts = func_list2list(Z_GK_00, y_gk_6pts, phi_List)
+print(Z_gk00_6pts)
+
+print('skala pól:')
+
+def p_GK(m_gk):
+    p_gk = m_gk ** 2
+    return p_gk
+
+p_gk = func_list2list(p_GK, m_gk_6pts)
+print(p_gk)
+
+def p_GK_92(m_gk):
+    m0_92 = 0.9993
+    p_92 = m0_92 ** 2 * m_gk
+    return p_92
+
+p_gk_92 = func_list2list(p_GK_92, m_gk_6pts)
+print(p_gk_92)
+
+def p_GK_00(m_gk):
+    m0_00 = 0.999923
+    p_00 = m0_00 ** 2 * m_gk
+    return p_00
+
+p_gk_00 = func_list2list(p_GK_00, m_gk_6pts)
+print(p_gk_00)
+
+print('zniekształcenia pól:')
+
+def Zp_GK(m_gk):
+    p = m_gk ** 2
+    Zp = 1 - p
+    return Zp
+
+Zp_gk = func_list2list(Zp_GK, m_gk_6pts)
+print(Zp_gk)
+
+def Zp_GK_92(m_gk):
+    m0_92 = 0.9993
+    p_92 = m0_92 ** 2 * m_gk ** 2
+    Zp_92 = 1 - p_92
+    return Zp_92
+
+Zp_gk_92 = func_list2list(Zp_GK_92, m_gk_6pts)
+print(Zp_gk_92)
+
+def Zp_GK_00(m_gk):
+    m0_00 = 0.999923
+    p_00 = m0_00 ** 2 * m_gk ** 2
+    Zp_00 = 1 - p_00
+    return Zp_00
+
+Zp_gk_00 = func_list2list(Zp_GK_00, m_gk_6pts)
+print(Zp_gk_00)
