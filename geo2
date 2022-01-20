@@ -45,24 +45,31 @@ def set_axes(ax):
 # punkt obserwacji pk.poł.: Timaru S 44 23 48.20 E 171 15 13.13 14m
 
 # X Cap / 25 Cap gwiazdozbiór Koziorożca
-# rektastenzja 21h08m31.40s
+# rektascensja 21h08m31.40s
 # deklinacja -21,11,42.6
-# kąt godzinny 9h40m29.35s
-# średni czas gwiazdowy 6h49m01.6s
 
 y = 2000
 m = 1
 d = 10
-h = 0
-lam = 61 + 28/60 + 0.02/3600 #gλE szer. geogr. obserwatora
-lam = 360 - lam # gdy lam jest E
-dekl = -(21 + 11/60 + 42.6/3600) # deklinacja
-p = 90 - (dekl) # odległość biegunowa / dopełnienie deklinacji
-alfa = 21 + 8/60 + 32.4/3600 # rektascenzja danej gwiazdy
+# h = 0
 
+alfa = 21 + 8/60 + 31.4/3600 # rektascenzja danej gwiazdy
+dekl = -(21 + 11/60 + 42.6/3600) # deklinacja danej gwiazdy
+
+# Nokia
+phi1 = 61 + 28/60 + 0.02/3600
+lam1 = 23 + 30/60
+
+# Gambela
+phi2 = 8 + 15/60
+lam2 = 34 + 34/60 + 59.98/3600
+
+# Timaru
+phi3 = -(44 + 23/60 + 48.20/3600)
+lam3 = 171 + 15/60 + 13.13/3600
 
 def calc_t(y, m, d, h, lam, alfa):
-    jd = julday(y, m, d, h)
+    jd = julday(y, m, d, 0)
     #print('jd: ' + str(jd))
     g = GMST(jd)
     UT1 = h * 1.002737909350795
@@ -80,7 +87,7 @@ def calc_Z(phi, delta, t):
 
     cosZ = np.sin(phi) * np.sin(delta) + np.cos(phi) * np.cos(delta) * np.cos(t)
     Z = np.arccos(cosZ)
-    return Z # odległość zenitalna
+    return Z # odległość zenitalna w radianach
 
 # z = calc_Z(lam, dekl, t)
 
@@ -106,7 +113,6 @@ def to_xyz(Z, Az, r = 1):
 
 # xyz = to_xyz(z, Az)
 
-# ax.plot(x, y, z, label='parametric curve')
 # ax.legend()
 
 plt.rcParams["figure.figsize"] = [7.00, 7.00]
@@ -117,48 +123,70 @@ r = 1
 # u, v = np.mgrid[0:2 * np.pi:120j, 0:np.pi:80j]
 u, v = np.mgrid[0:2 * np.pi:200j, 0:np.pi:200j]
 
-# u = np.linspace(0, 2*np.pi, 100)
-# v = np.linspace(0, np.pi, 100)
-# x = np.outer(np.cos(u), np.sin(v))
-# y = np.outer(np.sin(u), np.sin(v))
-# z = np.outer(np.ones(np.size(u)), np.cos(v))
-
 # hList = [h for h in range(24)]
 # for i, h in enumerate(hList):
+Z_List = []
+H_List = []
 xList = []
 yList = []
 zList = []
-for h in range(12):
-    t = calc_t(y, m, d, h, lam, alfa)
-    Z = calc_Z(lam, dekl, t)
-    Az = calc_Az(lam, dekl, t)
+Z_List2 = []
+H_List2 = []
+xList2 = []
+yList2 = []
+zList2 = []
+Z_List3 = []
+H_List3 = []
+xList3 = []
+yList3 = []
+zList3 = []
+
+for h in range(24):
+    t1 = calc_t(y, m, d, h, lam1, alfa) # w stopniach
+    Z = calc_Z(phi1, dekl, t1) # w radianach
+    Az = calc_Az(phi1, dekl, t1) # azymut w radianach
     xyz = to_xyz(Z, Az)
+    Z_List.append(np.rad2deg(Z))
+    H_List.append(90 - np.rad2deg(Z))
     xList.append(xyz[0])
     yList.append(xyz[1])
     zList.append(xyz[2])
-# print(xList)
-ax.scatter(xList, yList, zList, color='red')
 
+    t2 = calc_t(y, m, d, h, lam2, alfa)
+    Z2 = calc_Z(phi2, dekl, t2)
+    Az2 = calc_Az(phi2, dekl, t2)
+    xyz2 = to_xyz(Z2, Az2)
+    Z_List2.append(np.rad2deg(Z2))
+    H_List2.append(90 - np.rad2deg(Z2))
+    xList2.append(xyz2[0])
+    yList2.append(xyz2[1])
+    zList2.append(xyz2[2])
+
+    t3 = calc_t(y, m, d, h, lam3, alfa)
+    Z3 = calc_Z(phi3, dekl, t3)
+    Az3 = calc_Az(phi3, dekl, t3)
+    xyz3 = to_xyz(Z3, Az3)
+    Z_List3.append(np.rad2deg(Z3))
+    H_List3.append(90 - np.rad2deg(Z3))
+    xList3.append(xyz3[0])
+    yList3.append(xyz3[1])
+    zList3.append(xyz3[2])
+
+# fig = plt.figure()
+# fig = plt.plot(H_List3, 'o')
+#
+# fig2 = plt.figure()
+# fig2 = plt.plot(Z_List3, 'o')
+
+# ax.scatter(xList, yList, zList, color='red')
+# ax.scatter(xList2, yList2, zList2, color='red')
+# ax.scatter(xList3, yList3, zList3, color='red')
 
 x = np.cos(u) * np.sin(v)
 y = np.sin(u) * np.sin(v)
 z = np.cos(v)
 
-# z = []
-# for i in range(len(v)):
-#     t = []
-#     for j in range(len(v[0])):
-#         if (np.cos(v[i][j]) < 0):
-#             t.append(0)
-#         else:
-#             t.append(np.cos(v[i][j]))
-#     z.append(t)
-# z = np.asarray(z)
-
 ax.plot_surface(x * r, y * r, z * r, color='cyan', alpha=0.5)
-
-# ax.scatter(xyz[0], xyz[1], xyz[2])
-# print('x:' +str(xyz[0]) + ' y:' +  str(xyz[1]) + ' z:' + str(xyz[2]))
 
 # set_axes(ax)
 plt.show()
