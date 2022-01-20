@@ -1,0 +1,119 @@
+# Python 3.10
+
+import numpy as np
+
+def rad2deg_m_s(radians):
+    degrees = int(np.rad2deg(radians))
+    # print('degrees: ' + str(degrees))
+    minutes = np.rad2deg(radians) % 1 * 60
+    # print('minutes: ' + str(minutes))
+    minutes_no_sec = minutes - minutes % 1
+    # print('minutes_no_sec: ' + str(minutes_no_sec))
+    seconds = minutes % 1 * 60
+    # print('seconds: ' + str(seconds))
+    deg_m_s = str(degrees) + '° ' + str(minutes_no_sec) + 'm ' + str(round(seconds, 5)) + 's'
+    return deg_m_s
+
+# GRS80
+e2_grs80 = 0.00669437999013 # 0.006694380035512838?
+a_grs80 = 6378137
+# b = 6356752.3141
+# print((a_grs80 ** 2 - b ** 2) / (a_grs80 ** 2))
+
+# Krasowski
+a_kr = 6378245
+e2_kr = 0.0066934215520398155
+# b_kr = 6356863.019
+# e2_2_kr = (a_kr ** 2 - b_kr ** 2) / (a_kr ** 2)
+# print(e2_2_kr)
+
+H = 100
+
+def hirvonen(a, e2, x, y, z):
+    eps = np.deg2rad(0.00005 / 60**2)
+    r = np.sqrt(x * x + y * y)
+    phi = np.arctan(z / (r * (1 - e2)))
+
+    i = 0
+    while (1):
+        # i += 1
+        # print(i)
+        N = a / np.sqrt(1 - e2 * np.sin(phi) ** 2)
+        h = r / np.cos(phi) - N
+        new_phi = np.arctan(z / r / (1 - e2 * (N / (N + h))))
+        if (abs(new_phi - phi) < eps):
+            phi = new_phi
+            break
+        else:
+            phi = new_phi
+
+    lam = np.arctan(y / x)
+    N = a / np.sqrt(1 - e2 * np.sin(phi) ** 2)
+    h = r / np.cos(phi) - N
+    # print('xyz')
+    # print(x, y, z)
+    x = (N + h) * np.cos(phi) * np.cos(lam)
+    y = (N + h) * np.cos(phi) * np.sin(lam)
+    z = (N * (1 - e2) + h) * np.sin(phi)
+    # print('sprawdzenie:')
+    # print(x, y, z)
+
+    lam = rad2deg_m_s(lam)
+    phi = rad2deg_m_s(phi)
+    return lam, phi, h
+
+# test = hirvonen(a_grs80, e2_grs80, 4787685.6882675765, 2764171.620916603, 3170423.735383669)
+# print(np.rad2deg(test[0]), np.rad2deg(test[1]), test[2])
+
+# phi = np.deg2rad(30)
+# lam = np.deg2rad(30)
+# h = 100
+#
+# N = a / np.sqrt(1 - e2 * np.sin(phi) ** 2)
+# x = (N + h) * np.cos(phi) * np.cos(lam)
+# y = (N + h) * np.cos(phi) * np.sin(lam)
+# z = (N * (1 - e2) + h) * np.sin(phi)
+# print(x, y, z)
+
+def GRS80_to_Kras(xp, yp, zp):
+    x0 = -33.4297
+    y0 = 146.5746
+    z0 = 76.2865
+    mu = 0.8407728 * (10 ** -6)
+    m = 1 + mu
+    ex = np.deg2rad(-0.35867 / 60 ** 2)
+    ey = np.deg2rad(-0.05283 / 60 ** 2)
+    ez = np.deg2rad(0.84354 / 60 ** 2)
+    mat_m = np.array([[m, ez, -ey],
+                     [-ez, m, ex],
+                     [ey, -ex, m]])
+    # mat_e = np.array([[mu, ez, -ey],
+    #                  [-ez, mu, ex],
+    #                  [ey, -ex, mu]])
+    mat_p = np.array([[xp], [yp], [zp]])
+    mat_0 = np.array([[x0], [y0], [z0]])
+    # mat_w = mat_p + np.dot(mat_e, mat_p) + mat_0
+    mat_w = np.dot(mat_m, mat_p) + mat_0
+    x = float(mat_w[0])
+    y = float(mat_w[1])
+    z = float(mat_w[2])
+    return x, y, z
+
+def geo2xyz(lam, phi, h, a, e2):
+    N = a / np.sqrt(1 - e2 * np.sin(phi) ** 2)
+    x = (N + h) * np.cos(phi) * np.cos(lam)
+    y = (N + h) * np.cos(phi) * np.sin(lam)
+    z = (N * (1 - e2) + h) * np.sin(phi)
+    return x, y, z
+
+xyz1 = geo2xyz(np.deg2rad(20.75), np.deg2rad(50.25), 100, a_grs80, e2_grs80)
+print('xyz GRS80:')
+print(xyz1)
+
+gtk1 = GRS80_to_Kras(xyz1[0], xyz1[1], xyz1[2])
+print('xyz Krasowski:')
+print(gtk1)
+
+h1 = hirvonen(a_kr, e2_kr, gtk1[0], gtk1[1], gtk1[2])
+print('latlong Krasowski:')
+print(h1)
